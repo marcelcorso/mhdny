@@ -1,0 +1,2 @@
+module EchonestProxyHelper
+end

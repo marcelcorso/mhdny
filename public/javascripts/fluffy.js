@@ -8,7 +8,6 @@ $(function(){
   google.search.Search.getBranding('branding');
 });
 
-
 function hashchange(e) {
   // supper silly routing
   fragment = $.param.fragment();
@@ -36,9 +35,6 @@ function hashchange(e) {
 var Config = {
   soundcloud: {
     consumer_key: 'f9yIR0Wr4cwZewZquRr1g'
-  },
-  echonest: {
-    api_key: 'EZ5LKJQBOSCFT3TUN'
   }
 }
 
@@ -111,7 +107,7 @@ var GenreController = function(options) {
   }
 
   return that;
-}
+};
 
 var PlayerController = function(options) {
   var that = options;
@@ -168,75 +164,107 @@ var PlayerController = function(options) {
     setTimeout(function() {
       $('audio').attr('src', stream_url);
       $('audio')[0].load();
-      $('audio')[0].play();
+
+      fluffy.ui.get_beats();
+      fluffy.ui.get_google_images();
+      // later $('audio')[0].play();
     }, 1000);
   };
 
   return that;
 };
 
+
 var UI = function(options) {
   var that = options;
-
-  $('audio').bind('play', function() {
-    that.playing(); 
+  
+  that.current_image_position = 0;
+  that.audio_element = $('audio')[0];
+/*
+  $('audio').bind('timeupdate', function() {
+    var time = Math.floor((that.audio_element.currentTime * 100))
+    console.debug(time);
+    if (that.beats && that.beats[time]) {
+      $('#content img').attr('src', that.images[that.current_image_position++]);
+    }
   });
-
- 
-
-  that.playing = function() {
-    that.get_beats(); 
-    that.show_google_images();
-  };
+*/
 
   that.get_beats = function() {
     // upload
-    http://developer.echonest.com/api/v4/track/upload
-    http://developer.echonest.com/api/v4/track/upload.json?api_key=EZ5LKJQBOSCFT3TUN&url=http://api.soundcloud.com/tracks/10453229/stream?consumer_key=f9yIR0Wr4cwZewZquRr1g
-
-    // http://developer.echonest.com/api/v4/track/upload?format=json&api_key=N6E4NIOVYMTHNDM8J&url=http://api.soundcloud.com/tracks/10453229/stream?consumer_key=f9yIR0Wr4cwZewZquRr1g
-
-   
-    $.getJSON("http://developer.echonest.com/api/v4/track/upload?callback=?",
+    $.getJSON("/echonest_proxy/upload?callback=?",
       {
-        consumer_key: Config.echonest.api_key,
-        format: "json",
         url: $('audio').attr('src'),
       },
       function(data) {
+        that.upload_results = data;
         that.pool_beat_results(data.response.track.id);
       }
     );
+  }
 
-
-    that.pool_beat_results = function(id) {
-      $.getJSON("http://developer.echonest.com/api/v4/track/upload?callback=?",
-        {
-          consumer_key: Config.echonest.api_key,
-          format: "json",
-          url: $('audio').attr('src'),
-        },
-        function(data) {
-          if(data.track.status == 'complete') {
-            
-            that.pool_beat_results(data.response.track.id);
-          } else {
-            console.debug('pooling... status:' + data.track.status);
-            setTimeout(function() {
-              that.pool_beat_results(id);
-            }, 2000)
-          }
+  that.pool_beat_results = function(id) {
+    $.getJSON("/echonest_proxy/analyze?callback=?",
+      {
+        id: id,
+      },
+      function(data) {
+        console.debug(data);
+        if(data.response.track.status == 'complete') {
+          that.analysis_results_arrived(data);
+        } else {
+          console.debug('pooling... status:' + data.response.track.status);
+          setTimeout(function() {
+            that.pool_beat_results(id);
+          }, 2000)
         }
-      );
+      }
+    );
+  }; 
+
+  that.analysis_results_arrived = function(results) {
+    that.analysis_data = results;
+    that.beats = []
+    for(i in results.analysis.beats) {
+      that.beats.push(results.analysis.beats[i].start);
     }
- 
+    that.can_we_start() 
+  }
 
+  that.images_arrived = function() {
+    that.can_we_start()
+  }
 
-    // pool for response
-    // analyze
-  } 
+  that.can_we_start = function() {
+    if(that['analysis_data'] && that['images']) {
+      // yes
+      
+      $('audio')[0].play();
+      for(i in that.beats) {
+        setTimeout(that.next_image, that.beats[i] * 1000);
+      }
+    }
+  }
 
-  that.show_google_images = function() {
+  that.next_image = function() {
+    console.debug('next image');
+    $('#content img').attr('src', that.images[that.current_image_position++]);
+  }
+
+/*
+  that.schedule_beat_action = function(position) {
+    var beat = that.analysis_data.analysis.beats[position];
+    setTimeout(function() {
+
+      console.debug('expected:' + beat['start'].toString() + ' happening: ' + $('audio')[0].currentTime.toString());
+
+      console.debug('beat - ' + position.toString());
+      $('#content').html($('<img>').attr('src', that.images[position]));
+      that.schedule_beat_action(position+1);
+    }, beat['start'] * 1000)
+  }
+*/
+  that.get_google_images = function() {
     
     // Initialize the searcher object, in this case a WebSearch.
     var gs = new google.search.ImageSearch();
@@ -249,6 +277,7 @@ var UI = function(options) {
     that.images = [];
 
     gs.setSearchCompleteCallback(gs, function() {
+      console.debug('bang')
       var cursor = this.cursor;
 
       // Add the new results to the other results
@@ -261,12 +290,12 @@ var UI = function(options) {
       if (cursor && (cursor.pages.length > cursor.currentPageIndex + 1)){
 
         // Go to the next page.
-        // TODO this.gotoPage(cursor.currentPageIndex + 1);
-        that.show_image(0);
+        console.debug('goto page');
+        this.gotoPage(cursor.currentPageIndex + 1);
 
       // Else, if there is no cursor object or we're on the last page...
       } else {
-        that.show_image(0);
+        that.images_arrived();
       }
     });
 
@@ -275,16 +304,6 @@ var UI = function(options) {
     console.debug('searching for: ' + query);
     gs.execute(query);
   };
-
-  that.show_image = function(position) {
-    $('#content').html($('<img>').attr('src', that.images[position]));
-    setTimeout(function() {
-      if ((position + 1) > that.images.length) {
-        position = 0;
-      }
-      that.show_image(position + 1);
-    }, 3000);
-  }
 
   return that;
 };
