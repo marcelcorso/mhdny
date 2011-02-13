@@ -9,6 +9,9 @@
   <script type="text/javascript" src="/javascripts/fluffy.js"></script>
  
   <style>
+    body {
+      font-family: Verdana;
+    }
     #content {
       width: 500px;
       height: 500px;
@@ -16,16 +19,27 @@
     #image_cache {
       display: none;
     }
+    h1 a {
+      color: #aaf;
+      text-decoration: none;
+    }
+    #controls, #meta {
+      display: inline
+    }
   </style> 
  
   <meta charset="utf-8"> 
-  <title>Fluffy clouds</title> 
+  <title>Fluffy Cloud</title> 
 </head>
 
 <body>
+  <h1><a href="/">Fluffy Cloud</a></h1>
   <audio controls="controls"></audio>
+  <div id="meta" style="display: none"></div>
+  <div id="controls" style="display: none">
+    <a href="javascript:fluffy.player.go(-1)">prev</a> | <a href="javascript:fluffy.player.go(+1)">next</a>
+  </div>
   <section id="content">
-    <img></img>
   </section>
   <div id="branding"></div>
   <div id="image_cache"></div>

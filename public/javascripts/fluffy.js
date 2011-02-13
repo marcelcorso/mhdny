@@ -65,8 +65,13 @@ var GenreController = function(options) {
     $('#content').html('');    
     
     for(i in that._genres) {
-      var g = that._genres[i];
-      $('#content').append('<a href="#genres/'+ g +'">' + g + '</a> ');
+      var g = that._genres[i][0];
+      var i = that._genres[i][1];
+      
+      $('#content').append('<a href="#genres/'+ g +'"><img title="'+ g +'"src="' + i + '"/></a> ');
+      $('#content img').css('width', '144px');
+      $('#content img').css('height', '144px');
+      $('audio').hide();
     }
   };
 
@@ -97,9 +102,17 @@ var GenreController = function(options) {
   }
 
   that.load = function() {
-    that._genres = ['indie', 'electronic', 'experimental', 'trance', 'dubstep', 'hardcore', 'house', 'techno'];
+    that._genres = [['indie', 'http://userserve-ak.last.fm/serve/174s/57732847.png'], 
+                    ['electronic', 'http://userserve-ak.last.fm/serve/174s/5511239.jpg'], 
+                    ['experimental', 'http://userserve-ak.last.fm/serve/174s/52944421.png'], 
+                    ['trance', 'http://gatelessgate.files.wordpress.com/2007/08/goa_trance.jpg'], 
+                    ['dubstep', 'http://doish.com/wp-content/themes/nightlife_premium/images/dubstep.jpg'], 
+                    ['hardcore', 'http://cdn.sk.uproxx.com/wp-content/uploads/2010/11/Lil-Kim-Hardcore-album-cover.jpg'], 
+                    ['house', 'http://static.howstuffworks.com/gif/house-selling-1.jpg'], 
+                    ['techno', 'http://www.chubbybeavers.com/wp-content/uploads/2010/04/the-kids-want-techno.jpg'], 
+                    ['soul', 'http://www.psychologytoday.com/files/u40/061225_James_Brown_RIP_b.jpg']];
     for(i in that._genres) {
-      var g = that._genres[i];
+      var g = that._genres[i][0];
       that[g] = function() {
         that.show('genres/' + g);
       }
@@ -115,9 +128,13 @@ var PlayerController = function(options) {
   that.tracks = false;
 
   $('audio').bind('ended', function() {
-    next_position = parseInt(that.current_position) + 1;
-    fluffy.push_state('genres/' + fluffy.current_genre + '/' + fluffy.player.tracks[next_position].id)
+    that.go(-1);
   });
+
+  that.go = function(direction) {
+    var next_position = parseInt(that.current_position) + direction;
+    fluffy.push_state('genres/' + fluffy.current_genre + '/' + fluffy.player.tracks[next_position].id)
+  }
 
   that.load_tracks = function(tracks) {
     that.tracks = tracks;
@@ -146,6 +163,9 @@ var PlayerController = function(options) {
 
   that.play = function(fragment) {
     var parts = fragment.split('/')
+    $('#content').html('<img src="http://logd.tw.rpi.edu/files/loading.gif"></img>')
+    $('audio').show();
+    $('#controls').show();
     fluffy.current_genre = parts[1];
     that.play_by_id(parts[2]);
   };
@@ -161,6 +181,8 @@ var PlayerController = function(options) {
     that.current_position = position;
     var track = that.tracks[position];
     var stream_url = track['stream_url'] + '?' + 'consumer_key=' + Config.soundcloud.consumer_key;
+    $('#meta').html(track.user.username + ' - ' + track.title);
+    $('#meta').show();
     setTimeout(function() {
       $('audio').attr('src', stream_url);
       $('audio')[0].load();
@@ -226,7 +248,10 @@ var UI = function(options) {
     that.analysis_data = results;
     that.beats = []
     for(i in results.analysis.beats) {
-      that.beats.push(results.analysis.beats[i].start);
+      var beat = results.analysis.beats[i];
+      if(beat.confidence > 0.5) {
+        that.beats.push(beat.start);
+      }
     }
     that.can_we_start() 
   }
@@ -247,7 +272,8 @@ var UI = function(options) {
   }
 
   that.next_image = function() {
-    console.debug('next image');
+    if(that.current_image_position == that.images.length)
+      that.current_image_position = 0;
     $('#content img').attr('src', that.images[that.current_image_position++]);
   }
 
@@ -277,7 +303,6 @@ var UI = function(options) {
     that.images = [];
 
     gs.setSearchCompleteCallback(gs, function() {
-      console.debug('bang')
       var cursor = this.cursor;
 
       // Add the new results to the other results
@@ -290,7 +315,6 @@ var UI = function(options) {
       if (cursor && (cursor.pages.length > cursor.currentPageIndex + 1)){
 
         // Go to the next page.
-        console.debug('goto page');
         this.gotoPage(cursor.currentPageIndex + 1);
 
       // Else, if there is no cursor object or we're on the last page...
