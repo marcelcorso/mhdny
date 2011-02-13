@@ -36,6 +36,9 @@ function hashchange(e) {
 var Config = {
   soundcloud: {
     consumer_key: 'f9yIR0Wr4cwZewZquRr1g'
+  },
+  echonest: {
+    api_key: 'EZ5LKJQBOSCFT3TUN'
   }
 }
 
@@ -182,10 +185,56 @@ var UI = function(options) {
  
 
   that.playing = function() {
-   
+    that.get_beats(); 
     that.show_google_images();
-
   };
+
+  that.get_beats = function() {
+    // upload
+    http://developer.echonest.com/api/v4/track/upload
+    http://developer.echonest.com/api/v4/track/upload.json?api_key=EZ5LKJQBOSCFT3TUN&url=http://api.soundcloud.com/tracks/10453229/stream?consumer_key=f9yIR0Wr4cwZewZquRr1g
+
+    // http://developer.echonest.com/api/v4/track/upload?format=json&api_key=N6E4NIOVYMTHNDM8J&url=http://api.soundcloud.com/tracks/10453229/stream?consumer_key=f9yIR0Wr4cwZewZquRr1g
+
+   
+    $.getJSON("http://developer.echonest.com/api/v4/track/upload?callback=?",
+      {
+        consumer_key: Config.echonest.api_key,
+        format: "json",
+        url: $('audio').attr('src'),
+      },
+      function(data) {
+        that.pool_beat_results(data.response.track.id);
+      }
+    );
+
+
+    that.pool_beat_results = function(id) {
+      $.getJSON("http://developer.echonest.com/api/v4/track/upload?callback=?",
+        {
+          consumer_key: Config.echonest.api_key,
+          format: "json",
+          url: $('audio').attr('src'),
+        },
+        function(data) {
+          if(data.track.status == 'complete') {
+            
+            that.pool_beat_results(data.response.track.id);
+          } else {
+            console.debug('pooling... status:' + data.track.status);
+            setTimeout(function() {
+              that.pool_beat_results(id);
+            }, 2000)
+          }
+        }
+      );
+    }
+ 
+
+
+    // pool for response
+    // analyze
+  } 
 
   that.show_google_images = function() {
     
@@ -200,7 +249,6 @@ var UI = function(options) {
     that.images = [];
 
     gs.setSearchCompleteCallback(gs, function() {
-      console.debug('bango: ');
       var cursor = this.cursor;
 
       // Add the new results to the other results
@@ -213,7 +261,8 @@ var UI = function(options) {
       if (cursor && (cursor.pages.length > cursor.currentPageIndex + 1)){
 
         // Go to the next page.
-        this.gotoPage(cursor.currentPageIndex + 1);
+        // TODO this.gotoPage(cursor.currentPageIndex + 1);
+        that.show_image(0);
 
       // Else, if there is no cursor object or we're on the last page...
       } else {
@@ -222,13 +271,17 @@ var UI = function(options) {
     });
 
     var track = fluffy.player.tracks[fluffy.player.current_position];
-    console.debug('searching for: ' + track.title);
-    gs.execute(track.title);
+    var query = track.title + ' ' + track.genre; // TODO maybe .tags? 
+    console.debug('searching for: ' + query);
+    gs.execute(query);
   };
 
   that.show_image = function(position) {
     $('#content').html($('<img>').attr('src', that.images[position]));
     setTimeout(function() {
+      if ((position + 1) > that.images.length) {
+        position = 0;
+      }
       that.show_image(position + 1);
     }, 3000);
   }
