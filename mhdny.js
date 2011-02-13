@@ -1,6 +1,11 @@
+google.load('search', '1');
+
 $(function(){
+  fluffy = Fluffy({});
   $(window).bind( 'hashchange', hashchange);
   hashchange();
+
+  google.search.Search.getBranding('branding');
 });
 
 
@@ -17,6 +22,7 @@ function hashchange(e) {
     var method = routes[i][1];
     match = fragment.match(regex);
     if (match) {
+      console.debug('fragment: ' + fragment);
       method(fragment);
       break;
     }
@@ -41,6 +47,8 @@ var Fluffy = function(options) {
   that.genres.load();
 
   that.player = PlayerController({});
+
+  that.ui = UI({});
 
   that.push_state = function(state) {
     var new_url = $(document.location).attr( 'href' ).replace( /#.*/, '' ) 
@@ -74,7 +82,6 @@ var GenreController = function(options) {
   };
 
   that.load_tracks = function(callback) {
-    console.debug('loading tracks');
     $.getJSON("http://api.soundcloud.com/tracks.json?callback=?",
       {
         consumer_key: Config.soundcloud.consumer_key,
@@ -84,9 +91,7 @@ var GenreController = function(options) {
         'created_at[from]': '2011-02-12+18%3A00%3A00', // TODO  
       },
       function(tracks) {
-        console.debug('got tracks');
         fluffy.player.load_tracks(tracks);
-        console.debug('calling back');
         callback();
       }
     );
@@ -109,6 +114,11 @@ var PlayerController = function(options) {
   var that = options;
   that._position_by_id = false;
   that.tracks = false;
+
+  $('audio').bind('ended', function() {
+    next_position = parseInt(that.current_position) + 1;
+    fluffy.push_state('genres/' + fluffy.current_genre + '/' + fluffy.player.tracks[next_position].id)
+  });
 
   that.load_tracks = function(tracks) {
     that.tracks = tracks;
@@ -136,7 +146,6 @@ var PlayerController = function(options) {
   }
 
   that.play = function(fragment) {
-    console.debug('play()');
     var parts = fragment.split('/')
     fluffy.current_genre = parts[1];
     that.play_by_id(parts[2]);
@@ -153,12 +162,77 @@ var PlayerController = function(options) {
     that.current_position = position;
     var track = that.tracks[position];
     var stream_url = track['stream_url'] + '?' + 'consumer_key=' + Config.soundcloud.consumer_key;
-    $('audio').attr('src', stream_url);
-    $('audio')[0].play();
+    setTimeout(function() {
+      $('audio').attr('src', stream_url);
+      $('audio')[0].load();
+      $('audio')[0].play();
+    }, 1000);
   };
 
   return that;
 };
 
+var UI = function(options) {
+  var that = options;
 
-fluffy = Fluffy({});
+  $('audio').bind('play', function() {
+    that.playing(); 
+  });
+
+ 
+
+  that.playing = function() {
+   
+    that.show_google_images();
+
+  };
+
+  that.show_google_images = function() {
+    
+    // Initialize the searcher object, in this case a WebSearch.
+    var gs = new google.search.ImageSearch();
+    gs.setResultSetSize(google.search.Search.LARGE_RESULTSET);
+    gs.setRestriction(
+      google.search.ImageSearch.RESTRICT_IMAGESIZE,
+      google.search.ImageSearch.IMAGESIZE_LARGE
+    );
+
+    that.images = [];
+
+    gs.setSearchCompleteCallback(gs, function() {
+      console.debug('bango: ');
+      var cursor = this.cursor;
+
+      // Add the new results to the other results
+      for(i in this.results) {
+        that.images.push(this.results[i].url);
+        $('#image_cache').append($('<img>').attr('src', this.results[i].url));
+      }
+
+      // Check to see if the searcher actually has a cursor object and, if so, if we're on the last page of results. If not...
+      if (cursor && (cursor.pages.length > cursor.currentPageIndex + 1)){
+
+        // Go to the next page.
+        this.gotoPage(cursor.currentPageIndex + 1);
+
+      // Else, if there is no cursor object or we're on the last page...
+      } else {
+        that.show_image(0);
+      }
+    });
+
+    var track = fluffy.player.tracks[fluffy.player.current_position];
+    console.debug('searching for: ' + track.title);
+    gs.execute(track.title);
+  };
+
+  that.show_image = function(position) {
+    $('#content').html($('<img>').attr('src', that.images[position]));
+    setTimeout(function() {
+      that.show_image(position + 1);
+    }, 3000);
+  }
+
+  return that;
+};
+
