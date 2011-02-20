@@ -214,11 +214,13 @@ var UI = function(options) {
 
   that.get_beats = function() {
     // upload
+    console.debug('get beats')
     $.getJSON("/echonest_proxy/upload?callback=?",
       {
         url: $('audio').attr('src'),
       },
       function(data) {
+        console.debug('beats arrived')
         that.upload_results = data;
         that.pool_beat_results(data.response.track.id);
       }
