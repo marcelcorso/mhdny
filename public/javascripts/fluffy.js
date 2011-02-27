@@ -32,12 +32,6 @@ function hashchange(e) {
   }
 }
 
-var Config = {
-  soundcloud: {
-    consumer_key: 'f9yIR0Wr4cwZewZquRr1g'
-  }
-}
-
 // base track object
 var Fluffy = function(options) {
   var that = options;
@@ -85,15 +79,15 @@ var GenreController = function(options) {
     });
   };
 
-  that.load_tracks = function(callback) {
-    $.getJSON("http://api.soundcloud.com/tracks.json?callback=?",
-      {
-        consumer_key: Config.soundcloud.consumer_key,
-        order: "hotness",
-        genres: fluffy.current_genre,
-        filter: 'streamable',
-        'created_at[from]': '2011-02-12+18%3A00%3A00', // TODO  
-      },
+  that.load_tracks = function(requested_id, callback) {
+    var params = {
+        genre: fluffy.current_genre
+      }
+    if(requested_id != null) {
+      params['requested_id'] = requested_id;
+    }
+
+    $.getJSON("/tracks.json?", params, 
       function(tracks) {
         fluffy.player.load_tracks(tracks);
         callback();
@@ -128,7 +122,7 @@ var PlayerController = function(options) {
   that.tracks = false;
 
   $('audio').bind('ended', function() {
-    that.go(-1);
+    that.go(+1);
   });
 
   that.go = function(direction) {
@@ -142,7 +136,7 @@ var PlayerController = function(options) {
     that.position_by_id(function() {});
   };
 
-  that.position_by_id = function(callback) {
+  that.position_by_id = function(requested_id, callback) {
     if(!that._position_by_id) {
       that._position_by_id = {};
      
@@ -154,7 +148,7 @@ var PlayerController = function(options) {
       };
  
       if(!that.tracks) {
-        fluffy.genres.load_tracks(_loaded);
+        fluffy.genres.load_tracks(requested_id, _loaded);
       } else {
         _loaded();
       }
@@ -171,7 +165,7 @@ var PlayerController = function(options) {
   };
 
   that.play_by_id = function(id) {
-    that.position_by_id(function() {
+    that.position_by_id(id, function() {
       var position = that._position_by_id[id];
       that.play_track(position);
     });
